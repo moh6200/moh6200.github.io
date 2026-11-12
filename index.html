@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transport de béton - Modèle GAMS</title>
+<style>
+:root{--bg:#fff;--surface:#f5f4ef;--text:#1f1e1d;--muted:#5f5e5a;--border:rgba(0,0,0,.14);--accent:#185fa5;--warn-bg:#faeeda;--warn-text:#633806;--danger:#a32d2d;--ok:#3b6d11}
+@media (prefers-color-scheme:dark){:root{--bg:#1f1e1d;--surface:#2c2c2a;--text:#f1efe8;--muted:#b4b2a9;--border:rgba(255,255,255,.18);--accent:#85b7eb;--warn-bg:#412402;--warn-text:#fac775;--danger:#f09595;--ok:#97c459}}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6}
+main{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-bottom:16px;margin-bottom:24px;border-bottom:1px solid var(--border)}
+h1{font-size:22px;font-weight:500;margin:0}
+h2{font-size:18px;font-weight:500;margin:0 0 12px}
+.sub{font-size:14px;color:var(--muted)}
+nav{display:flex;gap:8px;flex-wrap:wrap}
+a.btn,button{font:inherit;font-size:14px;color:var(--text);background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;text-decoration:none}
+a.btn:hover,button:hover{background:var(--surface)}
+section{margin-bottom:40px;scroll-margin-top:16px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.bar h2{margin:0}
+pre{background:var(--surface);border-radius:12px;padding:16px 20px;overflow-x:auto;margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.65}
+.k{color:var(--accent)}.o{color:var(--danger)}.v{color:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cap{font-size:13px;color:var(--muted);margin:0 0 6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:500;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.n{text-align:right}
+.bdg{background:var(--warn-bg);color:var(--warn-text);font-size:12px;padding:2px 8px;border-radius:8px;margin-left:6px}
+.row{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr);gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:15px}
+.row code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <h1>Transport de béton</h1>
+    <div class="sub">Modèle GAMS, groupe A</div>
+  </div>
+  <nav>
+    <a class="btn" href="#code">Code</a>
+    <a class="btn" href="#data">Données</a>
+    <a class="btn" href="#model">Modèle</a>
+  </nav>
+</header>
+
+<section id="code">
+  <div class="bar">
+    <h2>Code GAMS</h2>
+    <button id="copy">Copier le code</button>
+  </div>
+<pre><code id="gms">SETS
+    G gravières /G1, G2, G3/
+    B usines à béton /B1, B2, B3/
+    C chantiers /C1, C2, C3/
+    GI(G) gravières internes /G1, G2/
+    GE(G) gravière externe /G3/
+    BI(B) usines à béton internes /B1, B2/
+    BE(B) usine à béton externe /B3/;
+
+PARAMETERS
+    CAPG(G) capacités de production des gravières
+        / G1 75, G2 60, G3 100 /
+    CAPB(B) capacités de production des usines à béton
+        / B1 60, B2 120, B3 600 /
+    DEM(C) demandes des chantiers en béton
+        / C1 100, C2 200, C3 130 /;
+
+SCALAR DEMTOT demande totale en béton;
+DEMTOT = SUM(C, DEM(C));
+
+SCALAR CAPBETONINT capacité interne totale des usines à béton;
+CAPBETONINT = SUM(BI, CAPB(BI));
+
+SCALAR CAPGRAVINT capacité interne totale des gravières;
+CAPGRAVINT = SUM(GI, CAPG(GI));
+
+SCALAR PENALITE coût de pénalité /1000/;
+
+TABLE DISTGB(G,B) distances entre les gravières et les usines à béton
+            B1    B2    B3
+    G1      100   80    85
+    G2      60    70    65
+    G3      120   180   140;
+
+TABLE DISTBC(B,C) distances entre les usines à béton et les chantiers
+            C1    C2    C3
+    B1      40    50    60
+    B2      25    30    30
+    B3      40    45    60;
+
+SCALAR COUT coût unitaire de transport /1/;
+
+PARAMETER CGB(G,B) coût de transport de G vers B;
+CGB(G,B) = COUT * DISTGB(G,B);
+
+CGB(GE,B) = CGB(GE,B) + PENALITE;
+
+PARAMETER CBC(B,C) coût de transport de B vers C;
+CBC(B,C) = COUT * DISTBC(B,C);
+
+CBC(BE,C) = CBC(BE,C) + PENALITE;
+
+VARIABLES
+    XGB(G,B) quantité de gravillons transportée de G vers B
+    XBC(B,C) quantité de béton transportée de B vers C
+    YG(G)    variable binaire indiquant si G est utilisée
+    YB(B)    variable binaire indiquant si B est utilisée
+    Z        coût total de transport;
+
+POSITIVE VARIABLES XGB, XBC;
+BINARY VARIABLES YG, YB;
+
+EQUATIONS
+    COUTOBJ    fonction objectif à minimiser
+    CAPGRAV(G) contrainte de capacité des gravières
+    CAPBETON(B) contrainte de capacité des usines à béton
+    DEMCHA(C)  satisfaction de la demande des chantiers
+    BALANCE(B) contrainte d'équilibre entre gravillons et béton
+    USEGRAVY(G,B) contrainte d'utilisation de la gravière G
+    USEBETY(B,C) contrainte d'utilisation de l'usine B;
+
+COUTOBJ.. Z =E= SUM((G,B), CGB(G,B)*XGB(G,B)) + SUM((B,C), CBC(B,C)*XBC(B,C));
+
+CAPGRAV(G).. SUM(B, XGB(G,B)) =L= CAPG(G) * YG(G);
+
+CAPBETON(B).. SUM(C, XBC(B,C)) =L= CAPB(B) * YB(B);
+
+DEMCHA(C).. SUM(B, XBC(B,C)) =G= DEM(C);
+
+BALANCE(B).. SUM(G, XGB(G,B)) =G= 0.5 * SUM(C, XBC(B,C));
+
+SCALAR M grande constante /10000/;
+USEGRAVY(G,B).. XGB(G,B) =L= M * YG(G);
+USEBETY(B,C).. XBC(B,C) =L= M * YB(B);
+
+MODEL TRANSPORT /ALL/;
+
+SOLVE TRANSPORT USING MIP MINIMIZING Z;
+
+DISPLAY Z.L, XGB.L, XBC.L, YG.L, YB.L;
+
+PARAMETER PLANGRAVIER(G,B) plan de transport des gravillons;
+PLANGRAVIER(G,B) = XGB.L(G,B);
+
+PARAMETER PLANBETON(B,C) plan de transport des bétons;
+PLANBETON(B,C) = XBC.L(B,C);
+
+DISPLAY PLANGRAVIER, PLANBETON;</code></pre>
+</section>
+
+<section id="data">
+  <h2>Données</h2>
+  <div class="grid">
+    <div>
+      <p class="cap">Gravières, capacité (t)</p>
+      <table><tr><th>Site</th><th class="n">Capacité</th></tr>
+        <tr><td>G1</td><td class="n">75</td></tr>
+        <tr><td>G2</td><td class="n">60</td></tr>
+        <tr><td>G3<span class="bdg">externe</span></td><td class="n">100</td></tr>
+      </table>
+    </div>
+    <div>
+      <p class="cap">Usines à béton, capacité (t)</p>
+      <table><tr><th>Site</th><th class="n">Capacité</th></tr>
+        <tr><td>B1</td><td class="n">60</td></tr>
+        <tr><td>B2</td><td class="n">120</td></tr>
+        <tr><td>B3<span class="bdg">externe</span></td><td class="n">600</td></tr>
+      </table>
+    </div>
+    <div>
+      <p class="cap">Chantiers, demande (t)</p>
+      <table><tr><th>Site</th><th class="n">Demande</th></tr>
+        <tr><td>C1</td><td class="n">100</td></tr>
+        <tr><td>C2</td><td class="n">200</td></tr>
+        <tr><td>C3</td><td class="n">130</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="grid2">
+    <div>
+      <p class="cap">Distances gravières vers usines (km)</p>
+      <table><tr><th></th><th class="n">B1</th><th class="n">B2</th><th class="n">B3</th></tr>
+        <tr><td>G1</td><td class="n">100</td><td class="n">80</td><td class="n">85</td></tr>
+        <tr><td>G2</td><td class="n">60</td><td class="n">70</td><td class="n">65</td></tr>
+        <tr><td>G3</td><td class="n">120</td><td class="n">180</td><td class="n">140</td></tr>
+      </table>
+    </div>
+    <div>
+      <p class="cap">Distances usines vers chantiers (km)</p>
+      <table><tr><th></th><th class="n">C1</th><th class="n">C2</th><th class="n">C3</th></tr>
+        <tr><td>B1</td><td class="n">40</td><td class="n">50</td><td class="n">60</td></tr>
+        <tr><td>B2</td><td class="n">25</td><td class="n">30</td><td class="n">30</td></tr>
+        <tr><td>B3</td><td class="n">40</td><td class="n">45</td><td class="n">60</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="model">
+  <h2>Structure du modèle</h2>
+  <div class="row"><code>Z</code><span>Coût total de transport à minimiser, avec une pénalité de 1000 sur les sites externes.</span></div>
+  <div class="row"><code>XGB, XBC</code><span>Quantités transportées des gravières vers les usines, puis des usines vers les chantiers.</span></div>
+  <div class="row"><code>YG, YB</code><span>Variables binaires : le site est utilisé ou non.</span></div>
+  <div class="row"><code>CAPGRAV, CAPBETON</code><span>Un site ne dépasse pas sa capacité, et seulement s'il est utilisé.</span></div>
+  <div class="row"><code>DEMCHA</code><span>La demande de chaque chantier est couverte.</span></div>
+  <div class="row"><code>BALANCE</code><span>Chaque usine reçoit au moins 0,5 t de gravillons par tonne de béton produite.</span></div>
+  <div class="row"><code>USEGRAVY, USEBETY</code><span>Contraintes Big-M (M = 10000) qui lient les flux aux variables binaires.</span></div>
+</section>
+</main>
+
+<script>
+var el = document.getElementById('gms');
+var src = el.textContent;
+var re = /\b(SETS|PARAMETERS|PARAMETER|TABLE|SCALAR|VARIABLES|POSITIVE|BINARY|EQUATIONS|MODEL|SOLVE|USING|MIP|MINIMIZING|DISPLAY|SUM|ALL)\b|(=[ELG]=)|(\b\d+(?:\.\d+)?\b)/g;
+el.innerHTML = src.replace(re, function (m, a, b) {
+  if (a) return '<span class="k">' + m + '</span>';
+  if (b) return '<span class="o">' + m + '</span>';
+  return '<span class="v">' + m + '</span>';
+});
+document.getElementById('copy').addEventListener('click', function () {
+  var btn = this;
+  var done = function () {
+    btn.textContent = 'Code copié';
+    setTimeout(function () { btn.textContent = 'Copier le code'; }, 2000);
+  };
+  var fallback = function () {
+    var ta = document.createElement('textarea');
+    ta.value = src;
+    ta.style.position = 'absolute';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Copie impossible'; }
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(src).then(done, fallback);
+  } else {
+    fallback();
+  }
+});
+</script>
+</body>
+</html>
